@@ -1,0 +1,291 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --neon-pink: #ff2a6d;
+  --neon-blue: #05d9e8;
+  --neon-purple: #d300c5;
+  --neon-green: #00ff9d;
+  --dark-bg: #0d0221;
+  --title-blue: #00aaff; /* Added blue color for title */
+}
+
+body {
+  font-family: "Noto Sans Georgian", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  background-color: var(--dark-bg);
+  color: white;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+.cyber-font {
+  font-family: "Orbitron", "Courier New", monospace;
+}
+
+.neon-text-pink {
+  color: var(--neon-pink);
+  text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink);
+}
+
+.neon-text-blue {
+  color: var(--neon-blue);
+  text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+}
+
+.neon-text-green {
+  color: var(--neon-green);
+  text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);
+}
+
+.neon-text-purple {
+  color: var(--neon-purple);
+  text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple);
+}
+
+.title-blue {
+  color: var(--title-blue);
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.neon-border {
+  border: 2px solid var(--neon-blue);
+  box-shadow: 0 0 10px var(--neon-blue), inset 0 0 10px var(--neon-blue);
+}
+
+.neon-card {
+  background: rgba(13, 2, 33, 0.7);
+  border: 1px solid var(--neon-purple);
+  box-shadow: 0 0 15px var(--neon-purple);
+  transition: all 0.3s ease;
+}
+
+.neon-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0 25px var(--neon-purple);
+}
+
+/* Modified glow effect - removed animation on hover */
+.glow-effect {
+  position: relative;
+}
+
+.glow-effect::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  z-index: -1;
+  background: linear-gradient(45deg, var(--neon-pink), var(--neon-blue), var(--neon-green), var(--neon-purple));
+  background-size: 400%;
+  opacity: 0;
+  transition: 0.5s;
+  border-radius: inherit;
+}
+
+.glow-effect:hover::before {
+  opacity: 0.3; /* Reduced opacity instead of animation */
+  background-position: 0 0; /* Static position */
+}
+
+.scanline {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(5, 217, 232, 0.5);
+  box-shadow: 0 0 10px var(--neon-blue);
+  animation: scan 8s linear infinite;
+}
+
+@keyframes scan {
+  0% {
+    top: 0;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+/* Modified price background - static effect */
+.price-bg {
+  position: relative;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.price-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: -50%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 42, 109, 0.1) 0%,
+    rgba(5, 217, 232, 0.1) 25%,
+    rgba(0, 255, 157, 0.1) 50%,
+    rgba(211, 0, 197, 0.1) 75%,
+    rgba(255, 42, 109, 0.1) 100%
+  );
+  z-index: -1;
+  background-size: 400% 400%;
+  /* Removed animation */
+}
+
+.price-up {
+  color: var(--neon-green);
+  text-shadow: 0 0 10px var(--neon-green);
+}
+
+.price-down {
+  color: var(--neon-pink);
+  text-shadow: 0 0 10px var(--neon-pink);
+}
+
+.cyber-input {
+  background: rgba(5, 217, 232, 0.1);
+  border: 1px solid var(--neon-blue);
+  color: white;
+  padding: 0.75rem 1rem;
+  font-family: "Orbitron", "Courier New", monospace;
+}
+
+.cyber-input:focus {
+  outline: none;
+  box-shadow: 0 0 15px var(--neon-blue);
+}
+
+.grid-bg {
+  background-image: linear-gradient(rgba(5, 217, 232, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 217, 232, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Loading spinner animation */
+.loading-spinner {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  position: relative;
+  margin: 0 auto;
+}
+
+.loading-spinner::before,
+.loading-spinner::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.loading-spinner::before {
+  width: 100%;
+  height: 100%;
+  background-image: linear-gradient(90deg, var(--neon-pink) 0%, var(--neon-blue) 100%);
+  animation: spin 0.5s linear infinite;
+}
+
+.loading-spinner::after {
+  width: 85%;
+  height: 85%;
+  background-color: var(--dark-bg);
+  top: 7.5%;
+  left: 7.5%;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-spinner-inner {
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--neon-green);
+  border-bottom-color: var(--neon-purple);
+  top: 20%;
+  left: 20%;
+  animation: spin-reverse 1s linear infinite;
+  z-index: 1;
+}
+
+@keyframes spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.loading-text {
+  font-family: "Orbitron", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 20px;
+  background: linear-gradient(90deg, var(--neon-pink), var(--neon-blue), var(--neon-green), var(--neon-purple));
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 4s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Forum button styles */
+.forum-button {
+  background-color: rgba(5, 217, 232, 0.2);
+  border: 1px solid var(--neon-blue);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.forum-button:hover {
+  background-color: rgba(5, 217, 232, 0.4);
+  box-shadow: 0 0 15px var(--neon-blue);
+}
