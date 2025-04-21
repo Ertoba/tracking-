@@ -18,6 +18,8 @@ body {
   color: white;
   overflow-x: hidden;
   min-height: 100vh;
+  /* Reduced base font size for better mobile compatibility */
+  font-size: 0.95rem;
 }
 
 .cyber-font {
@@ -288,4 +290,122 @@ body {
 .forum-button:hover {
   background-color: rgba(5, 217, 232, 0.4);
   box-shadow: 0 0 15px var(--neon-blue);
+}
+
+/* Reduced text sizes for better mobile compatibility */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+  h2 {
+    font-size: 1.75rem;
+  }
+  .text-lg {
+    font-size: 1rem;
+  }
+  .text-xl {
+    font-size: 1.1rem;
+  }
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+}
+
+/* Chart scroll container */
+.chart-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--neon-blue) rgba(13, 2, 33, 0.7);
+}
+
+.chart-scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chart-scroll-container::-webkit-scrollbar-track {
+  background: rgba(13, 2, 33, 0.7);
+}
+
+.chart-scroll-container::-webkit-scrollbar-thumb {
+  background-color: var(--neon-blue);
+  border-radius: 20px;
+}
+
+/* TradingView chart container */
+.chart-container {
+  position: relative;
+  background: rgba(13, 2, 33, 0.7);
+  border: 1px solid rgba(5, 217, 232, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Bottom sheet slide-up animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slide-up 0.5s ease-out forwards;
+}
+
+.slide-up-modal {
+  animation: slide-up 0.5s ease-out forwards;
+  will-change: transform;
+  overscroll-behavior: contain;
+  max-height: 80vh;
+}
+
+/* Prevent scrolling on body when modal is open */
+.body-no-scroll {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Mirror effect for cards and modal */
+.mirror-effect {
+  background: linear-gradient(135deg, rgba(13, 2, 33, 0.9), rgba(26, 8, 66, 0.8));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(5, 217, 232, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.mirror-card {
+  background: linear-gradient(135deg, rgba(13, 2, 33, 0.7), rgba(26, 8, 66, 0.6));
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(5, 217, 232, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .slide-up-modal {
+    border-radius: 20px 20px 0 0;
+    height: 80vh !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Improve touch targets for mobile */
+  button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1024px) {
+  .slide-up-modal {
+    border-radius: 16px;
+    width: 90% !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+  }
 }

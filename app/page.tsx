@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { CryptoCard } from "@/components/crypto-card"
 import { MarketStats } from "@/components/market-stats"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -16,6 +16,8 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("market_cap")
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     const updateTime = () => {
@@ -30,27 +32,31 @@ export default function Home() {
     return () => clearInterval(timeInterval)
   }, [])
 
-  useEffect(() => {
-    const loadCryptoData = async () => {
-      setIsLoading(true)
-      try {
-        const data = await fetchCryptoData()
-        setCryptoData(data)
-        setFilteredData(data)
-      } catch (error) {
-        console.error("Error fetching crypto data:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const loadCryptoData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
 
+    try {
+      const data = await fetchCryptoData()
+      setCryptoData(data)
+      setFilteredData(data)
+      setLastUpdated(new Date())
+    } catch (error) {
+      console.error("Error fetching crypto data:", error)
+      setError("მონაცემების ჩატვირთვა ვერ მოხერხდა. გთხოვთ, სცადოთ მოგვიანებით.")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
     loadCryptoData()
 
-    // Refresh data every 60 seconds
-    const refreshInterval = setInterval(loadCryptoData, 60000)
+    // Refresh data every 2 minutes (increased from 1 minute to reduce API calls)
+    const refreshInterval = setInterval(loadCryptoData, 120000)
 
     return () => clearInterval(refreshInterval)
-  }, [])
+  }, [loadCryptoData])
 
   useEffect(() => {
     let result = [...cryptoData]
@@ -91,6 +97,10 @@ export default function Home() {
     setSortBy(e.target.value)
   }
 
+  const handleRefresh = () => {
+    loadCryptoData()
+  }
+
   return (
     <div className="grid-bg min-h-screen">
       {/* Header */}
@@ -116,10 +126,23 @@ export default function Home() {
       <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <section className="mb-12 text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4 title-blue">კრიპტოვალუტების კურსი</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 title-blue">კრიპტოვალუტების კურსი</h2>
           <p className="text-lg sm:text-xl max-w-3xl mx-auto neon-text-pink">
             ნახეთ ყველა პოპულარული კრიპტოვალუტის ფასი რეალურ დროში
           </p>
+          {lastUpdated && (
+            <p className="text-sm text-gray-400 mt-2">
+              ბოლო განახლება: {lastUpdated.toLocaleTimeString("ka-GE")}
+              <button
+                onClick={handleRefresh}
+                className="ml-2 text-neon-blue hover:text-neon-pink transition-colors"
+                disabled={isLoading}
+                aria-label="განახლება"
+              >
+                <i className={`fas fa-sync-alt ${isLoading ? "animate-spin" : ""}`}></i>
+              </button>
+            </p>
+          )}
         </section>
 
         {/* Search and Filter */}
@@ -145,15 +168,40 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Error message */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-900 bg-opacity-30 border border-red-500 rounded-lg text-center">
+            <p className="text-red-300">{error}</p>
+            <button
+              onClick={handleRefresh}
+              className="mt-2 px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-white"
+            >
+              სცადეთ თავიდან
+            </button>
+          </div>
+        )}
+
         {/* Crypto Grid */}
         <section className="mb-12 scanline">
           {isLoading ? (
             <LoadingSpinner />
-          ) : (
+          ) : filteredData.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="crypto-grid">
               {filteredData.map((crypto) => (
                 <CryptoCard key={crypto.id} crypto={crypto} />
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-xl neon-text-blue">კრიპტოვალუტები ვერ მოიძებნა</p>
+              {searchTerm && (
+                <p className="mt-2 text-gray-400">
+                  სცადეთ სხვა საძიებო სიტყვა ან{" "}
+                  <button onClick={() => setSearchTerm("")} className="text-neon-pink hover:underline">
+                    გაასუფთავეთ ძიება
+                  </button>
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -171,20 +219,19 @@ export default function Home() {
               <p className="text-sm neon-text-blue">რეალურ დროში კრიპტოვალუტების მონიტორინგი</p>
             </div>
             <div className="flex space-x-6">
-              <a href="https://crypt.ge" className="neon-text-blue hover:text-neon-pink transition">
+              <a
+                href="https://t.me/cryptge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neon-text-blue hover:text-neon-pink transition"
+              >
                 <i className="fab fa-telegram text-xl"></i>
-              </a>
-              <a href="https://crypt.ge" className="neon-text-blue hover:text-neon-pink transition">
-                <i className="fab fa-twitter text-xl"></i>
-              </a>
-              <a href="https://crypt.ge" className="neon-text-blue hover:text-neon-pink transition">
-                <i className="fab fa-github text-xl"></i>
               </a>
             </div>
           </div>
           <div className="mt-8 text-center text-sm neon-text-blue">
-            <p>კრიპტო ფორუმი. ყველა უფლება დაცულია.</p>
-            <p className="mt-2">მონაცემები Coingecko –დან</p>
+            <p>© 2025 კრიპტო ფორუმი. ყველა უფლება დაცულია.</p>
+            <p className="mt-2">მონაცემები CoinGecko და CoinCap API-დან</p>
           </div>
         </div>
       </footer>
