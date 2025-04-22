@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { loadTradingViewScript } from "@/lib/tradingview-loader"
+import { getTradingViewSymbol } from "@/lib/trading-symbol-utils"
 
 interface TradingViewChartProps {
   symbol: string
@@ -30,74 +32,110 @@ export function TradingViewChart({
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const [scriptError, setScriptError] = useState(false)
   const [chartError, setChartError] = useState(false)
+  const [initAttempts, setInitAttempts] = useState(0)
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const maxAttempts = 3
+
+  // Generate a unique container ID for this instance
+  const containerId = useRef(`tradingview-widget-${symbol}-${interval}-${Date.now()}`)
 
   // Load TradingView script
   useEffect(() => {
-    if (!document.getElementById("tradingview-widget-script") && !scriptLoaded && !scriptError) {
-      const script = document.createElement("script")
-      script.id = "tradingview-widget-script"
-      script.src = "https://s3.tradingview.com/tv.js"
-      script.async = true
-
-      script.onload = () => {
-        setScriptLoaded(true)
-      }
-
-      script.onerror = () => {
-        console.error("Failed to load TradingView script")
-        setScriptError(true)
-        if (onError) onError()
-      }
-
-      document.head.appendChild(script)
+    if (!scriptLoaded && !scriptError) {
+      loadTradingViewScript()
+        .then(() => {
+          console.log("TradingView script loaded successfully")
+          setScriptLoaded(true)
+        })
+        .catch((error) => {
+          console.error("Failed to load TradingView script:", error)
+          setScriptError(true)
+          if (onError) onError()
+        })
     }
 
     return () => {
-      // Clean up widget when component unmounts
-      if (widgetRef.current) {
-        try {
-          // Some cleanup if needed
-        } catch (e) {
-          console.error("Error cleaning up TradingView widget:", e)
-        }
-      }
-
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current)
       }
     }
   }, [scriptLoaded, scriptError, onError])
 
-  // Create widget when script is loaded and component is visible
+  // Clean up widget when visibility changes or component unmounts
   useEffect(() => {
-    // Reset chart error state on new attempt
-    setChartError(false)
+    if (!isVisible && widgetRef.current) {
+      console.log("Modal closed or hidden, cleaning up TradingView widget")
+      widgetRef.current = null
+    }
 
-    // Only create widget when it's visible, the script is loaded, and TradingView is available
-    if (isVisible && containerRef.current && scriptLoaded && window.TradingView) {
+    return () => {
+      // Clean up widget when component unmounts
+      if (widgetRef.current) {
+        try {
+          console.log("Component unmounting, cleaning up TradingView widget")
+          widgetRef.current = null
+        } catch (e) {
+          console.error("Error cleaning up TradingView widget:", e)
+        }
+      }
+    }
+  }, [isVisible])
+
+  // Initialize chart with retry mechanism
+  const initializeChart = useCallback(() => {
+    // Don't initialize if not visible or widget already exists
+    if (!isVisible || !containerRef.current || !scriptLoaded || !window.TradingView) {
+      console.log("Cannot initialize chart: conditions not met", {
+        isVisible,
+        hasContainer: !!containerRef.current,
+        scriptLoaded,
+        hasTradingView: typeof window !== "undefined" && !!window.TradingView,
+      })
+      return false
+    }
+
+    // If widget already exists, don't reinitialize
+    if (widgetRef.current) {
+      console.log("Widget already exists, skipping initialization")
+      return true
+    }
+
+    try {
+      console.log(`Initializing chart for ${symbol}, attempt ${initAttempts + 1}/${maxAttempts}`)
+
+      // Format symbol for TradingView using our utility
+      let formattedSymbol
       try {
-        // Format symbol for TradingView (e.g., "bitcoin" -> "BINANCE:BTCUSDT")
-        const formattedSymbol = formatSymbolForTradingView(symbol)
+        // Use the symbol directly if it's already a ticker symbol (like BTC, ETH)
+        if (symbol.length <= 5 && symbol === symbol.toUpperCase()) {
+          formattedSymbol = `BINANCE:${symbol}USDT`
+        } else {
+          // Otherwise, convert from coin ID to ticker symbol
+          formattedSymbol = getTradingViewSymbol(symbol)
+        }
+        console.log(`Formatted symbol: ${formattedSymbol}`)
+      } catch (error) {
+        console.error("Error formatting symbol:", error)
+        formattedSymbol = "BINANCE:BTCUSDT" // Default fallback
+      }
 
-        // Create new widget with a unique container ID
-        const containerId = `tradingview-widget-${symbol}-${interval}-${Date.now()}`
-        containerRef.current.id = containerId
+      // Ensure container has proper dimensions
+      if (containerRef.current.clientWidth === 0 || containerRef.current.clientHeight === 0) {
+        console.warn("Chart container has zero dimensions, retrying...")
+        return false
+      }
 
-        // Set a timeout to detect if chart fails to load
-        loadTimeoutRef.current = setTimeout(() => {
-          // Check if chart is still loading
-          const chartElement = document.querySelector(`#${containerId} iframe`)
-          if (!chartElement || chartElement.clientHeight < 100) {
-            console.error("Chart failed to load properly")
-            setChartError(true)
-            if (onError) onError()
-          }
-        }, 5000)
+      // Set container ID if not already set
+      if (!containerRef.current.id) {
+        containerRef.current.id = containerId.current
+      }
 
-        // Create new widget
+      console.log(`Creating widget with container ID: ${containerRef.current.id}`)
+
+      // Create new widget
+      try {
         widgetRef.current = new window.TradingView.widget({
-          container_id: containerId,
+          container_id: containerRef.current.id,
           symbol: formattedSymbol,
           interval: interval,
           timezone: "exchange",
@@ -135,72 +173,68 @@ export function TradingViewChart({
         console.error("Error creating TradingView widget:", error)
         setChartError(true)
         if (onError) onError()
+        return false
       }
+
+      // Set a timeout to detect if chart fails to load
+      loadTimeoutRef.current = setTimeout(() => {
+        // Check if chart is still loading
+        const chartElement = document.querySelector(`#${containerRef.current?.id} iframe`)
+        if (!chartElement || chartElement.clientHeight < 100) {
+          console.error("Chart failed to load properly")
+          setChartError(true)
+          if (onError) onError()
+        }
+      }, 5000)
+
+      return true
+    } catch (error) {
+      console.error("Error creating TradingView widget:", error)
+      setChartError(true)
+      if (onError) onError()
+      return false
     }
-  }, [symbol, interval, theme, height, isVisible, scriptLoaded, onError])
+  }, [symbol, interval, theme, height, isVisible, scriptLoaded, initAttempts, maxAttempts, onError])
 
-  // Function to format crypto symbol for TradingView
-  const formatSymbolForTradingView = (cryptoSymbol: string): string => {
-    // Common mappings for popular cryptocurrencies
-    const symbolMap: Record<string, string> = {
-      bitcoin: "BINANCE:BTCUSDT",
-      ethereum: "BINANCE:ETHUSDT",
-      ripple: "BINANCE:XRPUSDT",
-      litecoin: "BINANCE:LTCUSDT",
-      cardano: "BINANCE:ADAUSDT",
-      polkadot: "BINANCE:DOTUSDT",
-      dogecoin: "BINANCE:DOGEUSDT",
-      solana: "BINANCE:SOLUSDT",
-      tether: "BINANCE:USDTUSDC",
-      binancecoin: "BINANCE:BNBUSDT",
-      "usd-coin": "BINANCE:USDCUSDT",
-      xrp: "BINANCE:XRPUSDT",
-      "binance-usd": "BINANCE:BUSDUSDT",
-      "avalanche-2": "BINANCE:AVAXUSDT",
-      "matic-network": "BINANCE:MATICUSDT",
-      "shiba-inu": "BINANCE:SHIBUSDT",
-      dai: "BINANCE:DAIUSDT",
-      tron: "BINANCE:TRXUSDT",
-      uniswap: "BINANCE:UNIUSDT",
-      // დამატებითი კრიპტოვალუტები
-      "bitcoin-cash": "BINANCE:BCHUSDT",
-      chainlink: "BINANCE:LINKUSDT",
-      stellar: "BINANCE:XLMUSDT",
-      cosmos: "BINANCE:ATOMUSDT",
-      algorand: "BINANCE:ALGOUSDT",
-      filecoin: "BINANCE:FILUSDT",
-      vechain: "BINANCE:VETUSDT",
-      "theta-token": "BINANCE:THETAUSDT",
-      aave: "BINANCE:AAVEUSDT",
-      monero: "BINANCE:XMRUSDT",
-      eos: "BINANCE:EOSUSDT",
-      neo: "BINANCE:NEOUSDT",
-      iota: "BINANCE:IOTAUSDT",
-      dash: "BINANCE:DASHUSDT",
-      maker: "BINANCE:MKRUSDT",
-      "compound-governance-token": "BINANCE:COMPUSDT",
-      zcash: "BINANCE:ZECUSDT",
-      decentraland: "BINANCE:MANAUSDT",
-      "the-sandbox": "BINANCE:SANDUSDT",
-      "axie-infinity": "BINANCE:AXSUSDT",
+  // Create widget when script is loaded and component is visible
+  useEffect(() => {
+    // Reset chart error state on new attempt
+    setChartError(false)
+
+    if (isVisible && scriptLoaded && initAttempts < maxAttempts && !widgetRef.current) {
+      // Add a small delay to ensure the modal is fully visible and sized
+      const timer = setTimeout(() => {
+        const success = initializeChart()
+
+        if (!success && initAttempts < maxAttempts - 1) {
+          console.log(`Chart initialization failed, retrying... (${initAttempts + 1}/${maxAttempts})`)
+          setInitAttempts((prev) => prev + 1)
+        } else if (!success) {
+          console.error("Max chart initialization attempts reached")
+          setChartError(true)
+          if (onError) onError()
+        }
+      }, 500)
+
+      return () => clearTimeout(timer)
     }
+  }, [isVisible, scriptLoaded, initAttempts, maxAttempts, initializeChart, onError])
 
-    // თუ სიმბოლო არსებობს რუკაში, დავაბრუნოთ შესაბამისი ფორმატი
-    if (symbolMap[cryptoSymbol.toLowerCase()]) {
-      return symbolMap[cryptoSymbol.toLowerCase()]
+  // Reset attempts when symbol or interval changes
+  useEffect(() => {
+    setInitAttempts(0)
+    setChartError(false)
+
+    // Generate a new container ID when symbol or interval changes
+    containerId.current = `tradingview-widget-${symbol}-${interval}-${Date.now()}`
+
+    // Reset widget reference to force reinitialization
+    widgetRef.current = null
+
+    if (containerRef.current) {
+      containerRef.current.id = containerId.current
     }
-
-    // თუ არ არსებობს, ვცადოთ სხვადასხვა ფორმატები
-    const formats = [
-      `BINANCE:${cryptoSymbol.toUpperCase()}USDT`,
-      `COINBASE:${cryptoSymbol.toUpperCase()}USD`,
-      `KRAKEN:${cryptoSymbol.toUpperCase()}USD`,
-      `BITSTAMP:${cryptoSymbol.toUpperCase()}USD`,
-    ]
-
-    // დავაბრუნოთ პირველი ფორმატი (BINANCE)
-    return formats[0]
-  }
+  }, [symbol, interval])
 
   // Fallback content if script fails to load or chart has error
   if (scriptError || chartError) {
@@ -209,7 +243,15 @@ export function TradingViewChart({
         <div className="text-center">
           <p className="text-red-400 mb-2">ჩარტის ჩატვირთვა ვერ მოხერხდა</p>
           <p className="text-gray-400 text-sm mb-4">გთხოვთ, შეამოწმოთ ინტერნეტ კავშირი და სცადოთ თავიდან</p>
-          <button onClick={onError} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 rounded-lg text-white">
+          <button
+            onClick={() => {
+              setChartError(false)
+              setInitAttempts(0)
+              widgetRef.current = null
+              if (onError) onError()
+            }}
+            className="px-4 py-2 bg-blue-900 hover:bg-blue-800 rounded-lg text-white"
+          >
             <i className="fas fa-sync-alt mr-2"></i> თავიდან ცდა
           </button>
         </div>
@@ -217,5 +259,17 @@ export function TradingViewChart({
     )
   }
 
-  return <div ref={containerRef} className="w-full h-full" />
+  // Loading state
+  if (!scriptLoaded || !isVisible) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg p-4">
+        <div className="text-center">
+          <div className="loading-spinner-inner mb-4"></div>
+          <p className="text-gray-400">ჩარტი იტვირთება...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <div ref={containerRef} id={containerId.current} className="w-full h-full" />
 }

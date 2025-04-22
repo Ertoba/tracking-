@@ -70,6 +70,19 @@ body {
   box-shadow: 0 0 25px var(--neon-purple);
 }
 
+/* Mini crypto card for compact display */
+.mini-crypto-card {
+  background: rgba(13, 2, 33, 0.7);
+  border: 1px solid var(--neon-purple);
+  box-shadow: 0 0 8px var(--neon-purple);
+  transition: all 0.3s ease;
+}
+
+.mini-crypto-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 15px var(--neon-purple);
+}
+
 /* Modified glow effect - removed animation on hover */
 .glow-effect {
   position: relative;
@@ -110,6 +123,9 @@ body {
   background: rgba(5, 217, 232, 0.5);
   box-shadow: 0 0 10px var(--neon-blue);
   animation: scan 8s linear infinite;
+  /* Add hardware acceleration */
+  transform: translateZ(0);
+  will-change: top;
 }
 
 @keyframes scan {
@@ -349,12 +365,28 @@ body {
   }
 }
 
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
 .slide-up {
   animation: slide-up 0.5s ease-out forwards;
 }
 
 .slide-up-modal {
   animation: slide-up 0.5s ease-out forwards;
+  will-change: transform;
+  overscroll-behavior: contain;
+  max-height: 80vh;
+}
+
+.slide-down-modal {
+  animation: slide-down 0.5s ease-out forwards;
   will-change: transform;
   overscroll-behavior: contain;
   max-height: 80vh;
@@ -408,4 +440,74 @@ body {
     max-width: 1200px !important;
     margin: 0 auto !important;
   }
+}
+
+/* Lightweight chart styles */
+.light-chart-container {
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(13, 2, 33, 0.7);
+  border: 1px solid rgba(5, 217, 232, 0.3);
+}
+
+.light-chart-container .light-chart {
+  transition: height 0.3s ease;
+}
+
+/* Tooltip styles for lightweight chart */
+.lightweight-tooltip {
+  position: absolute;
+  display: none;
+  padding: 8px;
+  box-sizing: border-box;
+  font-size: 12px;
+  color: white;
+  background-color: rgba(13, 2, 33, 0.9);
+  border: 1px solid var(--neon-blue);
+  box-shadow: 0 0 10px rgba(5, 217, 232, 0.5);
+  pointer-events: none;
+  z-index: 1000;
+  border-radius: 4px;
+}
+
+/* Lightweight chart controls */
+.light-chart-controls button {
+  transition: all 0.2s ease;
+  font-size: 0.75rem;
+}
+
+.light-chart-controls button:hover {
+  box-shadow: 0 0 8px rgba(5, 217, 232, 0.5);
+}
+
+.lightweight-chart-legend {
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: "Noto Sans Georgian", sans-serif;
+}
+
+/* Chart type buttons */
+.chart-types button {
+  transition: all 0.2s ease;
+}
+
+.chart-types button:hover {
+  background-color: rgba(5, 217, 232, 0.2);
+}
+
+.chart-options button {
+  transition: all 0.2s ease;
+}
+
+.chart-options button:hover {
+  background-color: rgba(5, 217, 232, 0.2);
+}
+
+/* Light chart legend */
+.light-chart-legend {
+  background-color: rgba(13, 2, 33, 0.8);
+  border: 1px solid rgba(5, 217, 232, 0.3);
+  padding: 8px;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(5, 217, 232, 0.2);
 }

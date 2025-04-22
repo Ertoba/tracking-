@@ -4,10 +4,11 @@ import type React from "react"
 
 import { useEffect, useState, useCallback } from "react"
 import { CryptoCard } from "@/components/crypto-card"
-import { MarketStats } from "@/components/market-stats"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { Pagination } from "@/components/pagination"
 import type { CryptoData } from "@/types"
 import { fetchCryptoData } from "@/lib/api"
+import { generateMockData } from "@/lib/mock-data"
 
 export default function Home() {
   const [cryptoData, setCryptoData] = useState<CryptoData[]>([])
@@ -18,6 +19,10 @@ export default function Home() {
   const [sortBy, setSortBy] = useState("market_cap")
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(5) // 5 გვერდი, თითოეულზე 100 კრიპტოვალუტა
+  const [isMockData, setIsMockData] = useState(false)
+  const perPage = 100
 
   useEffect(() => {
     const updateTime = () => {
@@ -32,31 +37,71 @@ export default function Home() {
     return () => clearInterval(timeInterval)
   }, [])
 
-  const loadCryptoData = useCallback(async () => {
+  // Update the loadCryptoData function to handle errors better
+  const loadCryptoData = useCallback(async (page: number) => {
     setIsLoading(true)
     setError(null)
+    setIsMockData(false)
 
     try {
-      const data = await fetchCryptoData()
-      setCryptoData(data)
-      setFilteredData(data)
-      setLastUpdated(new Date())
+      console.log(`Loading crypto data for page ${page}`)
+      let data: CryptoData[] = []
+
+      try {
+        // Try to fetch real data
+        data = await fetchCryptoData(page, perPage)
+        console.log(`Successfully loaded ${data.length} crypto items`)
+      } catch (apiError) {
+        console.error("All API attempts failed, using mock data:", apiError)
+        // If all API attempts fail, use mock data
+        data = generateMockData(page, perPage)
+        setIsMockData(true)
+        if (apiError.toString().includes("429") || apiError.toString().includes("Rate limit")) {
+          setError("გაფრთხილება: API-ის მოთხოვნების ლიმიტი ამოიწურა. გამოყენებულია მოდელირებული მონაცემები.")
+        } else {
+          setError("გაფრთხილება: გამოყენებულია მოდელირებული მონაცემები. რეალური მონაცემების ჩატვირთვა ვერ მოხერხდა.")
+        }
+      }
+
+      if (data && data.length > 0) {
+        setCryptoData(data)
+        setFilteredData(data)
+        setLastUpdated(new Date())
+      } else {
+        console.error("Received empty data")
+        // If we got empty data, use mock data as fallback
+        const mockData = generateMockData(page, perPage)
+        setCryptoData(mockData)
+        setFilteredData(mockData)
+        setIsMockData(true)
+        setError("გაფრთხილება: გამოყენებულია მოდელირებული მონაცემები. მიღებულია ცარიელი მონაცემები.")
+      }
     } catch (error) {
-      console.error("Error fetching crypto data:", error)
-      setError("მონაცემების ჩატვირთვა ვერ მოხერხდა. გთხოვთ, სცადოთ მოგვიანებით.")
+      console.error("Critical error in loadCryptoData:", error)
+      // Last resort - use mock data
+      const mockData = generateMockData(page, perPage)
+      setCryptoData(mockData)
+      setFilteredData(mockData)
+      setIsMockData(true)
+      setError("გაფრთხილება: გამოყენებულია მოდელირებული მონაცემები. კრიტიკული შეცდომა მონაცემების ჩატვირთვისას.")
     } finally {
       setIsLoading(false)
+      setLastUpdated(new Date())
     }
   }, [])
 
   useEffect(() => {
-    loadCryptoData()
+    loadCryptoData(currentPage)
 
-    // Refresh data every 2 minutes (increased from 1 minute to reduce API calls)
-    const refreshInterval = setInterval(loadCryptoData, 120000)
+    // Refresh data every 2 minutes if not using mock data
+    const refreshInterval = setInterval(() => {
+      if (!isMockData) {
+        loadCryptoData(currentPage)
+      }
+    }, 120000)
 
     return () => clearInterval(refreshInterval)
-  }, [loadCryptoData])
+  }, [loadCryptoData, currentPage, isMockData])
 
   useEffect(() => {
     let result = [...cryptoData]
@@ -98,7 +143,12 @@ export default function Home() {
   }
 
   const handleRefresh = () => {
-    loadCryptoData()
+    loadCryptoData(currentPage)
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo(0, 0)
   }
 
   return (
@@ -124,12 +174,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <section className="mb-12 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4 title-blue">კრიპტოვალუტების კურსი</h2>
-          <p className="text-lg sm:text-xl max-w-3xl mx-auto neon-text-pink">
-            ნახეთ ყველა პოპულარული კრიპტოვალუტის ფასი რეალურ დროში
-          </p>
+        {/* Hero Section - Removed the specified text */}
+        <section className="mb-8 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 title-blue"></h2>
           {lastUpdated && (
             <p className="text-sm text-gray-400 mt-2">
               ბოლო განახლება: {lastUpdated.toLocaleTimeString("ka-GE")}
@@ -146,7 +193,7 @@ export default function Home() {
         </section>
 
         {/* Search and Filter */}
-        <section className="mb-8">
+        <section className="mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <input
@@ -168,13 +215,29 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Pagination - Top */}
+        <section className="mb-6">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+        </section>
+
         {/* Error message */}
         {error && (
-          <div className="mb-8 p-4 bg-red-900 bg-opacity-30 border border-red-500 rounded-lg text-center">
-            <p className="text-red-300">{error}</p>
+          <div
+            className={`mb-8 p-4 ${isMockData ? "bg-yellow-900 bg-opacity-30 border border-yellow-500" : "bg-red-900 bg-opacity-30 border border-red-500"} rounded-lg text-center`}
+          >
+            <p className={isMockData ? "text-yellow-300" : "text-red-300"}>
+              {error.includes("Rate limit")
+                ? "API-ის მოთხოვნების ლიმიტი ამოიწურა. გამოყენებულია მოდელირებული მონაცემები."
+                : error}
+            </p>
+            <p className="text-gray-400 text-sm mt-2 mb-3">
+              {error.includes("Rate limit")
+                ? "გთხოვთ, დაელოდოთ რამდენიმე წუთს და სცადოთ თავიდან."
+                : "გთხოვთ, შეამოწმოთ ინტერნეტ კავშირი და სცადოთ თავიდან."}
+            </p>
             <button
               onClick={handleRefresh}
-              className="mt-2 px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-white"
+              className={`px-4 py-2 ${isMockData ? "bg-yellow-800 hover:bg-yellow-700" : "bg-red-800 hover:bg-red-700"} rounded-lg text-white`}
             >
               სცადეთ თავიდან
             </button>
@@ -182,11 +245,14 @@ export default function Home() {
         )}
 
         {/* Crypto Grid */}
-        <section className="mb-12 scanline">
+        <section className="mb-8 scanline">
           {isLoading ? (
             <LoadingSpinner />
           ) : filteredData.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="crypto-grid">
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+              id="crypto-grid"
+            >
               {filteredData.map((crypto) => (
                 <CryptoCard key={crypto.id} crypto={crypto} />
               ))}
@@ -206,8 +272,12 @@ export default function Home() {
           )}
         </section>
 
-        {/* Market Stats */}
-        <MarketStats cryptoData={cryptoData} isLoading={isLoading} />
+        {/* Pagination - Bottom */}
+        <section className="mb-8">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+        </section>
+
+        {/* Market Stats section removed as requested */}
       </main>
 
       {/* Footer */}
@@ -231,7 +301,9 @@ export default function Home() {
           </div>
           <div className="mt-8 text-center text-sm neon-text-blue">
             <p>© 2025 კრიპტო ფორუმი. ყველა უფლება დაცულია.</p>
-            <p className="mt-2">მონაცემები CoinGecko და CoinCap API-დან</p>
+            <p className="mt-2">
+              {isMockData ? "გამოყენებულია მოდელირებული მონაცემები" : "მონაცემები CoinGecko API-დან"}
+            </p>
           </div>
         </div>
       </footer>

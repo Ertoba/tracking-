@@ -21,10 +21,11 @@ const STORAGE_KEY = "crypto_modal_state"
 
 export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedInterval, setSelectedInterval] = useState<TimeInterval>({ label: "1 დღე", tvInterval: "D" })
+  const [selectedInterval] = useState<TimeInterval>({ label: "1 დღე", tvInterval: "D" })
   const modalRef = useRef<HTMLDivElement>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [chartKey, setChartKey] = useState(Date.now()) // უნიკალური გასაღები ჩარტის გადატვირთვისთვის
+  const [chartReady, setChartReady] = useState(false)
 
   const timeIntervals: TimeInterval[] = [
     { label: "5 წთ", tvInterval: "5" },
@@ -46,25 +47,33 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
 
   // მოდალის მდგომარეობის შენახვა ლოკალურ სტორიჯში
   useEffect(() => {
-    if (isOpen && crypto) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          isOpen: true,
-          cryptoId: crypto.id,
-          interval: selectedInterval.tvInterval,
-        }),
-      )
-    } else if (!isOpen) {
-      localStorage.removeItem(STORAGE_KEY)
+    try {
+      if (isOpen && crypto) {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            isOpen: true,
+            cryptoId: crypto.id,
+            interval: selectedInterval.tvInterval,
+          }),
+        )
+      } else if (!isOpen) {
+        localStorage.removeItem(STORAGE_KEY)
+      }
+    } catch (e) {
+      console.error("Error managing localStorage:", e)
     }
   }, [isOpen, crypto, selectedInterval])
 
   // ჩარტის გადატვირთვა ინტერვალის ცვლილებისას
   useEffect(() => {
     if (isOpen && isVisible) {
+      console.log("Reloading chart due to interval change:", selectedInterval.tvInterval)
       setChartKey(Date.now())
       setIsLoading(true)
+      setChartReady(false)
+
+      // დავაყოვნოთ ჩატვირთვის ინდიკატორის გამორთვა, რომ ჩარტს ჰქონდეს დრო ჩატვირთვისთვის
       const timer = setTimeout(() => {
         setIsLoading(false)
       }, 1000)
@@ -75,15 +84,24 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
   // მოდალის გახსნა/დახურვის ეფექტები
   useEffect(() => {
     if (isOpen) {
+      // მოდალის გახსნისას დავაყოვნოთ ხილვადობის ჩართვა, რომ ანიმაცია დასრულდეს
       setTimeout(() => {
         setIsVisible(true)
+        console.log("Modal is now visible")
+
+        // დავაყოვნოთ ჩატვირთვის ინდიკატორის გამორთვა
         setTimeout(() => {
           setIsLoading(false)
+          console.log("Loading indicator turned off")
         }, 1500)
       }, 300)
     } else {
-      setIsVisible(false)
+      // When closing, keep isVisible true for a moment to allow animation
+      setTimeout(() => {
+        setIsVisible(false)
+      }, 500)
       setIsLoading(true)
+      setChartReady(false)
     }
   }, [isOpen])
 
@@ -114,11 +132,21 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
 
   // ჩარტის ხელახლა ჩატვირთვა
   const handleRetryChart = () => {
+    console.log("Manual chart reload triggered")
     setIsLoading(true)
+    setChartReady(false)
     setChartKey(Date.now())
+
+    // Keep the modal open during refresh
     setTimeout(() => {
       setIsLoading(false)
     }, 1000)
+  }
+
+  // ჩარტის მზაობის სტატუსის განახლება
+  const handleChartError = () => {
+    console.log("Chart error occurred, triggering retry")
+    handleRetryChart()
   }
 
   if (!isOpen) return null
@@ -132,7 +160,7 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
         ref={modalRef}
         className={`bg-gradient-to-b from-[#0d0221] to-[#1a0842] rounded-t-2xl shadow-2xl transform transition-transform duration-500 ease-out ${
           isOpen ? "translate-y-0" : "translate-y-full"
-        } slide-up-modal mirror-effect`}
+        } ${isVisible ? "slide-up-modal" : "slide-down-modal"} mirror-effect`}
         style={{
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
@@ -171,25 +199,6 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
               <i className="fas fa-times neon-text-pink text-lg"></i>
             </button>
           </div>
-
-          {/* დროის ინტერვალის არჩევანი */}
-          <div className="p-3 overflow-x-auto">
-            <div className="flex space-x-2 min-w-max">
-              {timeIntervals.map((interval) => (
-                <button
-                  key={interval.label}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    selectedInterval.label === interval.label
-                      ? "bg-neon-blue bg-opacity-30 text-white border border-neon-blue"
-                      : "bg-gray-800 bg-opacity-50 text-gray-300 hover:bg-gray-700"
-                  }`}
-                  onClick={() => setSelectedInterval(interval)}
-                >
-                  {interval.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* გადახვევადი შიგთავსი */}
@@ -224,7 +233,10 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
           )}
 
           {/* ჩარტი */}
-          <div className="relative rounded-lg overflow-hidden mb-6 chart-container">
+          <div className="mb-2 flex justify-between items-center">
+            <h3 className="text-lg font-bold neon-text-blue">TradingView ჩარტი</h3>
+          </div>
+          <div className="relative rounded-lg overflow-hidden mb-6 chart-container" style={{ minHeight: "400px" }}>
             {isLoading ? (
               <div className="h-[400px] flex items-center justify-center">
                 <LoadingSpinner />
@@ -237,8 +249,8 @@ export function ChartModal({ isOpen, onClose, crypto }: ChartModalProps) {
                   interval={selectedInterval.tvInterval}
                   theme="dark"
                   height={400}
-                  isVisible={isVisible}
-                  onError={handleRetryChart}
+                  isVisible={isVisible && !isLoading}
+                  onError={handleChartError}
                 />
                 <button
                   onClick={handleRetryChart}
